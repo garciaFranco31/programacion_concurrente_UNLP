@@ -96,3 +96,51 @@ Se crea una nueva variable "pri", la cual es compartida por ambos procesos y rep
 ¿Se debería dejar las variables pri_ocupada y pri_vacia? ¿Dónde se actualiza la variable pri?
 
 b)
+```c
+    int cant = 0;   int pri = 0;    int pri_ocupada = 0;    int pri_vacia = 0;  int buffer[N];
+    Process Productor[id: 0..P-1]{ 
+        while (true){ 
+        //produce elemento 
+         <await (cant < N); cant++ 
+         buffer[pri] = elemento; 
+         pri = (pri + 1) mod N; >
+       } 
+    } 
+
+    Process Consumidor[id: 0..C-1]  { 
+        while (true) { 
+        <await (cant > 0); cant--  
+        elemento = buffer[pri];
+        pri = (pri + 1) mod N; >
+        //consume elemento 
+       } 
+    }
+```
+
+4. Realice una solución concurrente de grano grueso (utilizando <> y/o <await B; S>) para el 
+    siguiente problema. Un sistema operativo mantiene 5 instancias de un recurso almacenadas 
+    en una cola, cuando un proceso necesita usar una instancia del recurso la saca de la cola, la 
+    usa y cuando termina de usarla la vuelve a depositar.  
+
+process recurso id 0..4 => es una queue
+
+process consumidor{
+    //sacar de la cola la instancia i
+    //usar instancia
+    //depositar en cola
+}
+```c
+    ColaRecurso queue [5];
+
+    process consumidor[id: 0..4]{
+        Recurso recurso
+        while(true){
+            <await (cant < 5);
+            cant++;
+            recurso = queue.pop();>
+            //usa el recurso
+            <queue.push();
+            cant--;>
+        }
+    }
+```
