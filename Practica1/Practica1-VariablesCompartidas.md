@@ -20,8 +20,8 @@
     ```pascal
         x:= (x*3) + (x*2) + 1;
     ```
+    ![alt text](image.png)
 ## RESPUESTA
-    ![alt text](image.png) 
     a) Verdadero.
        Se realiza primero toda la ejcución del proceso 1, luego todo el proceso 2 y por último todo el proceso 3. 
     b) Verdadero. 
@@ -47,6 +47,7 @@
     a) Indicar si el siguiente código funciona para resolver el problema de 
     Productor/Consumidor  con  un  buffer  de  tamaño  N.  En  caso  de  no  funcionar,  debe 
     hacer las modificaciones necesarias.
+    b) Modificar el código para que funcione para C consumidores y P productores.
 
 ```c
     int cant = 0;         int pri_ocupada = 0;       int pri_vacia = 0;        int buffer[N];
@@ -70,6 +71,7 @@
 ```
 
 ## RESPUESTA
+a)
 ```c
     int cant = 0;   int pri = 0;    int pri_ocupada = 0;    int pri_vacia = 0;  int buffer[N];
     Process Productor::  
@@ -92,3 +94,5 @@
 ```
 Se crea una nueva variable "pri", la cual es compartida por ambos procesos y representa la posición del elemnto que se guardará/consumirá. 
 ¿Se debería dejar las variables pri_ocupada y pri_vacia? ¿Dónde se actualiza la variable pri?
+
+b)
