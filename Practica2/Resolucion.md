@@ -70,7 +70,24 @@ a)
 
 ---
 3.  Un  sistema  operativo  mantiene  5  instancias  de  un  recurso  almacenadas  en  una  cola. 
-Además, existen P procesos que necesitan usar una instancia del recurso. Para eso, deben sacar la instancia de la cola antes de usarla. Una vez usada, la instancia debe ser encolada nuevamente.  
+Además, existen P procesos que necesitan usar una instancia del recurso. Para eso, deben sacar la instancia de la cola antes de usarla. Una vez usada, la instancia debe ser encolada nuevamente. 
+```c
+colaRecurso q[5]; sem mutex = 1; sem mutexq = 5;
+
+procedure Consumidores[i:1..P]{
+    while (True){
+        P(mutex)
+        P(mutexq)
+        recurso = q.pop()
+        //usar recurso
+        V(mutexq)
+        P(mutexq)
+        q.push(recurso)
+        V(mutexq)
+        V(mutex)
+    }
+}
+```
 
 --- 
 4.  Suponga  que  existe  una  BD  que  puede  ser  accedida  por  6  usuarios  como  máximo  al 
@@ -104,6 +121,13 @@ Indique si la solución presentada es la más adecuada. Justifique la respuesta.
         V(baja); 
     } 
 ```
+* Lo que podemos observar es que los semáforos están mal declarados, ya que la declaración correcta sería:
+```c
+    sem semaphoro = 1
+    sem alta = 1
+    sem baja = 1
+```
+* Otra cosa que debería modificarse, es que se debería bloquear primero el paso por prioridad, es decir, se debe hacer primero el P(alta) o P(baja), debido a que si no se hace esto, y ya hay 4 usuarios de prioridad alta, un 5to usuario va a poder entrar, y eso hace que la solución sea incorrecta.
 
 ---
 5.  En  una  empresa  de  logística  de  paquetes  existe  una  sala  de  contenedores  donde  se 
@@ -111,7 +135,19 @@ preparan las entregas. Cada contenedor puede almacenar un paquete y la sala cuen
 a) La empresa cuenta con 2 empleados:  un empleado Preparador que se ocupa de preparar  los  paquetes  y  dejarlos  en  los  contenedores;  un  empelado  Entregador que  se  ocupa  de  tomar  los  paquetes  de  los  contenedores  y  realizar  la  entregas. Tanto el Preparador como el Entregador trabajan de a un paquete por vez. 
 b) Modifique la solución a) para el caso en que haya P empleados Preparadores. 
 c) Modifique la solución a) para el caso en que haya E empleados Entregadores. 
-d) Modifique la solución a) para el caso en que haya P empleados Preparadores y E empleadores Entregadores. 
+d) Modifique la solución a) para el caso en que haya P empleados Preparadores y E empleados Entregadores. 
+
+sem preparador = 1; sem entregador = 1;
+
+P(preparador)
+//preparar paquete
+//dejarlo en contenedor
+V(praparador)
+P(entregador)
+//sacar paquete del contenedor
+//entregar el paquete
+V(entregador)
+
 
 --- 
 6.  Existen N personas que deben imprimir un trabajo cada una. Resolver cada ítem usando  semáforos: 
