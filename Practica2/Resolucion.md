@@ -137,25 +137,227 @@ b) Modifique la solución a) para el caso en que haya P empleados Preparadores.
 c) Modifique la solución a) para el caso en que haya E empleados Entregadores. 
 d) Modifique la solución a) para el caso en que haya P empleados Preparadores y E empleados Entregadores. 
 
-sem preparador = 1; sem entregador = 1;
+```c
+    //SOLUCIÓN A
+    ColaPaquete q[N]
+    sem vacio = 1;
+    sem lleno = 0;
 
-P(preparador)
-//preparar paquete
-//dejarlo en contenedor
-V(praparador)
-P(entregador)
-//sacar paquete del contenedor
-//entregar el paquete
-V(entregador)
+    Procedure preparador {
+        while (true){
+            //prepara el paquete
+            P(vacio)
+            q.push(paquete)
+            V(lleno)
+        }
+    }
+
+    Procedure entregador {
+        while(true){
+            P(lleno)
+            paquete = q.pop
+            V(vacio)
+            //entregar paquete
+        }
+    }
+```
+
+```c
+    //SOLUCIÓN B
+    ColaPaquete q[N]
+    sem vacio = 1;
+    sem lleno = 0;
+    sem mutexP = 1;
+
+    Procedure preparador[i: 1..P] {
+        while (true){
+            //prepara el paquete
+            P(vacio)
+            P(mutexP)
+            q.push(paquete)
+            V(mutexP)
+            V(lleno)
+        }
+    }
+
+    Procedure entregador {
+        while(true){
+            P(lleno)
+            paquete = q.pop
+            V(vacio)
+            //entregar paquete
+        }
+    }
+```
+
+```c
+    //SOLUCIÓN B
+    ColaPaquete q[N]
+    sem vacio = 1;
+    sem lleno = 0;
+    sem mutexE = 1;
+
+    Procedure preparador {
+        while (true){
+            //prepara el paquete
+            P(vacio)
+            q.push(paquete)
+            V(lleno)
+        }
+    }
+
+    Procedure entregador[i: 1..E] {
+        while(true){
+            P(lleno)
+            P(mutexE)
+            paquete = q.pop
+            V(mutexE)
+            V(vacio)
+            //entregar paquete
+        }
+    }
+```
+
+```c
+    //SOLUCIÓN D
+    ColaPaquete q[N]
+    sem vacio = 1;
+    sem lleno = 0;
+    sem mutexP = 1;
+    sem mutexE = 1;
+
+    Procedure preparador[i: 1..P] {
+        while (true){
+            //prepara el paquete
+            P(vacio)
+            P(mutexP)
+            q.push(paquete)
+            V(mutexP)
+            V(lleno)
+        }
+    }
+
+    Procedure entregador[i: 1..E] {
+        while(true){
+            P(lleno)
+            P(mutexE)
+            paquete = q.pop
+            V(mutexE)
+            V(vacio)
+            //entregar paquete
+        }
+    }
+```
 
 
 --- 
 6.  Existen N personas que deben imprimir un trabajo cada una. Resolver cada ítem usando  semáforos: 
-a) Implemente una solución suponiendo que existe una única impresora compartida por todas las personas, y las mismas la deben usar de a una persona a la vez, sin importar el orden. Existe una función Imprimir(documento) llamada por la persona que simula el uso de la impresora. Sólo se deben usar los procesos que representan a las Personas. 
+a) Implemente una solución suponiendo que existe una única impresora compartida por todas las personas, y las mismas la deben usar de a una persona a la vez, sin importar el orden. Existe una función Imprimir(documento) llamada por la persona que simula el uso de la impresora. Sólo se deben usar los procesos que representan a las Personas.
+
+```c
+sem mutex = 1;
+
+Procedure personas[i:1..N]{
+    P(mutex)
+    Imprimir(documento)
+    V(mutex)
+}
+```
+
 b) Modifique la solución de (a) para el caso en que se deba respetar el orden de llegada. 
+
+```c
+sem mutex = 1;
+queueOrden q;
+sem espera[P] = ([P] 0);
+int aux;
+bool libre = true;
+
+Procedure personas[i:1..N]{
+    P(mutex)
+    if(libre){
+        libre = false
+        V(mutex)
+    }
+    else{
+        q.push(i)
+        V(mutex)
+        P(espera[i])
+    }
+    Imprimir(documento)
+    P(mutex)
+    if(q.isEmpty()){
+        libre = true
+    }
+    else{
+        aux = q.pop()
+        V(espera[i])
+    }
+    V(mutex)
+}
+```
+
 c) Modifique  la  solución  de  (a)  para  el  caso  en  que  se  deba  respetar  estrictamente el orden dado por el identificador del proceso (la persona X no puede usar la impresora hasta que no haya terminado de usarla la persona X-1). 
-d) Modifique la solución de (b) para el caso en que además hay un proceso Coordinador que le indica a cada persona que es su turno de usar la impresora. 
+
+```c
+int proximo = 0
+sem espera[P] = ([P] 0)
+
+Procedure personas[i:1..N]{
+   if (proximo != i){
+        P(espera[i])
+   }
+   imprimir(documento)
+   proximo = proximo + 1
+   V(espera[proximo])
+}
+```
+
+d) Modifique la solución de (b) para el caso en que además hay un proceso Coordinador que le indica a cada persona que es su turno de usar la impresora.
+
+```c
+sem mutex = 1
+sem espera[P] = ([P] 0)
+sem listo = 0
+sem llena = 0
+qLlegada = q
+
+Procedure persona[i:1..N]{
+    P(mutex)
+    q.push(i)
+    V(mutex)
+    V(llena)
+    P(espera[i])
+    imprimir(documento)
+    V(listo)
+}
+
+Procedure coordinador{
+    int aux;
+    for i = 1..P{
+        P(llena)
+        P(mutex)
+        aux = q.pop()
+        V(mutex)
+        V(espera[aux])
+        P(listo)
+    }
+}
+```
+
 e) Modificar la solución (d) para el caso en que sean 5 impresoras. El coordinador le indica a la persona cuando puede usar una impresora, y cual debe usar.  
+
+```c
+
+
+Procedure personas[i:1..N]{
+    
+}
+
+Procedure coordinador{
+
+}
+```
 
 --- 
 7. Suponga que se tiene un curso con 50 alumnos. Cada alumno debe realizar una tarea y existen  10  enunciados  posibles.  Una  vez  que  todos  los  alumnos  eligieron  su  tarea, comienzan a realizarla. Cada vez que un alumno termina su tarea, le avisa al profesor y se queda esperando el puntaje del grupo, el cual está dado por todos aquellos que comparten el  mismo  enunciado.  Cuando  un  grupo  terminó,  el  profesor  les  otorga  un  puntaje  que representa el orden en que se terminó esa tarea de las 10 posibles. 
