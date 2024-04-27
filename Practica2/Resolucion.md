@@ -348,15 +348,45 @@ Procedure coordinador{
 e) Modificar la solución (d) para el caso en que sean 5 impresoras. El coordinador le indica a la persona cuando puede usar una impresora, y cual debe usar.  
 
 ```c
-
+sem espera[P] = ([P] 0);
+sem mutex = 1
+sem llena = 0
+qLlegada q
+int impresoras[5] = {1,2,3,4,5}
+sem cantImpresoras = 5
+int personaImpresora[P] = ([P] -1)
+sem mutexImp = 1
 
 Procedure personas[i:1..N]{
-    
+    P(mutex)
+    c.push(i)
+    V(mutex)
+    V(llena)
+    P(espera[i])
+    Imprimir(documento, personaImpresora[i])
+    P(mutexImp)
+    impresoras.push(personaImpresora[i])
+    V(mutexImp)
+    V(impresoras)
 }
 
 Procedure coordinador{
-
+    int aux,
+    int imaux;
+    for i = 1..P{
+        P(llena)
+        P(mutex)
+        aux = q.pop()
+        V(mutex)
+        P(impresoras)
+        P(mutexImp)
+        imaux = impresoras.pop()
+        V(mutexImp)
+        personaImpresora[aux] = imaux
+        V(espera[aux])
+    }
 }
+
 ```
 
 --- 
@@ -364,21 +394,301 @@ Procedure coordinador{
 
 *Nota: Para elegir la tarea suponga que existe una función elegir que le asigna una tarea a un alumno (esta función asignará 10 tareas diferentes entre 50 alumnos, es decir, que 5 alumnos tendrán la tarea 1, otros 5 la tarea 2 y así sucesivamente para las 10 tareas)*
 
+```c
+sem mutex = 1;
+sem alumnBarrera = 0;
+sem maestroAwk = 0;
+sem seDioPuntaje[10] = ([10] 0);
+int puntajeTarea[10] = ([10] 0);
+int contador = 0;
+queue fin;
+
+process alumno[i:1..50]{
+    Tarea archTarea; int tarea; int puntaje; int j;
+    P(mutex);
+    tarea = elegir();
+    contador++;
+    if (contador == 50){
+        for j = 1 ..50{
+            V(alumnBarrera);
+        }
+    }
+    V(mutex);
+    P(alumnBarrera);
+    archTarea.realizarTarea();
+    P(mutex)
+    fin.push(tarea);
+    V(mutex);
+    V(maestroAwk);
+    P(seDioPuntaje[tarea]);
+    puntaje = puntajeTarea[tarea];
+
+}
+
+
+process profesor{
+    int puntaje = 10; int contTareas[10] = ([10] 0);
+    for j = 1..50{
+        P(maestroAwk);
+        P(mutex);
+        tarea = fin.pop();
+        V(mutex);
+        contTareas[tarea]++;
+        if (contTareas[tarea] == 5){
+            puntajeTarea[tarea] = puntaje;
+            for i = 1..5{
+                V(seDioPuntaje[tarea]);
+            }
+            puntaje--;
+        }
+    }
+}
+
+```
+
 ---
 8.  Una fábrica de piezas metálicas debe producir T piezas por día. Para eso, cuenta con E empleados que se ocupan de producir las piezas de a una por vez (se asume  T>E). La fábrica  empieza  a  producir  una  vez  que  todos  los  empleados  llegaron.  Mientras  haya piezas  por  fabricar,  los  empleados  tomarán  una  y  la  realizarán.  Cada  empleado  puede tardar distinto  tiempo  en  fabricar  una  pieza.  Al  finalizar  el  día,  se  le  da  un  premio  al empleado que más piezas fabricó. 
+
+```c
+sem mutex = 1;
+sem barrera = 0;
+sem mutexFinalizoEmpleado = 1;
+sem verPremio = 0;
+int cantidad = 0;
+int piezas = 0;
+int contadorEmpleado[E] = ([E] 0);
+int finalizoEmpleado = 0;
+int premio = 0;
+sem empresaAwk = 0;
+
+
+process empleado[i:1..E]{
+    bool tienePremio = false;
+    P(mutex);
+    cantidadEmpleado++;
+    if(cantidadEmpleado == E){
+        for j = 1.. E{
+            V(barrera);
+        }
+    }
+    V(mutex);
+    P(barrera);
+    P(mutex);
+    while(piezas < T){
+        //tomar pieza
+        cantidadPiezas++;
+        V(mutex);
+        //fabricar piezas
+        contadorEmpleado[i]++;
+        P(mutex);
+    }
+    V(mutex);
+    P(mutexFinalizoEmpleado);
+    finalizoEmpleado++;
+    if (finalizoEmpleado == E){
+        V(empresaAwk);
+    }
+    V(mutexFinalizoEmpleado);
+    P(verPremio);
+    if (premio == i){
+        tienePremio = true;
+    }
+}
+
+process empresa{
+    int j;
+    P(empresaAwk);
+    premio - contadoEmpleado.indexOf(contadorEmpleado.max());
+    for j = 1..E{
+        V(verPremio);
+    }
+}
+
+```
 
 --- 
 9.  Resolver el funcionamiento en una fábrica de ventanas con 7 empleados (4 carpinteros, 1 vidriero y 2 armadores) que trabajan de la siguiente manera: 
 * Los carpinteros continuamente hacen marcos (cada marco es armando por un único carpintero) y los deja en un depósito con capacidad de almacenar 30 marcos. 
 * El vidriero continuamente hace vidrios y los deja en otro depósito con capacidad para 50 vidrios. 
 * Los  armadores  continuamente  toman  un  marco  y  un  vidrio  (en  ese  orden)  de  los  depósitos correspondientes y arman la ventana (cada ventana es armada por un único armador). 
+
+```c
+    sem capacidadMarcos = 30;
+    sem capacidadVidrios = 50;
+    sem mutexMarco = 1;
+    sem mutexVidrio = 1;
+    sem hayMarco = 0;
+    sem hayVidrio = 0;
+    sem mutexVentana = 1;
+    queueMarcos qm;
+    queueVidrios qv;
+    queueVentana qventana;
+
+    process carpintero[i:1..4]{
+        Marco marco;
+        while (true){
+            P(capacidadMarcos);
+            marco = hacerMarco();
+            P(mutexMarco);
+            qm.push(marco);
+            V(hayMarco);
+        }
+    }
+
+    process vidriero{
+        Vidrio vidrio;
+        while (true){
+            P(capacidadVidrio);
+            vidrio = hacerVidrio();
+            P(mutexVidrio);
+            qv.push(vidrio);
+            V(hayVidrio);
+        }
+    }
+
+    process armador[i:1..2]{
+        Marco marco;
+        Vidrio vidrio;
+        Ventana ventana;
+        while(true){
+            P(hayMarco);
+            P(mutexMarco);
+            marco = qm.pop();
+            V(mutexMarco);
+            V(capacidadMarco);
+            P(hayVidrio);
+            P(mutexVidrio);
+            vidrio = qv.pop();
+            V(mutexVidrio);
+            V(capacidadVidrio);
+            ventana = armarVentana(marco, vidrio);
+            P(mutexVentana);
+            qVentana.push(ventana);
+            V(mutexVentana);
+        }
+    }
+```
  
 ---
 10. A una cerealera van T camiones a descargarse trigo y M camiones a descargar maíz. Sólo hay lugar para que 7 camiones a la vez descarguen, pero no pueden ser más de 5 del mismo tipo de cereal. Nota: no usar un proceso extra que actué como coordinador, resolverlo entre los camiones. 
+
+```c
+sem camiones = 7;
+sem trigo = 5;
+sem maiz = 5;
+
+process camionTrigo[i:1..T]{
+    P(trigo);
+    P(camiones);
+    //descargar trigo
+    V(camiones);
+    V(trigo);
+}
+
+Process camionMaiz[i:1..M]{
+    P(maiz);
+    P(camiones);
+    //descargar maiz
+    V(camiones);
+    V(maiz);
+}
+
+```
  
 ---
 11. En un vacunatorio hay un empleado de salud para vacunar a 50 personas. El empleado de salud atiende a las personas de acuerdo con el orden de llegada y de a 5 personas a la vez.  Es  decir,  que  cuando  está  libre  debe  esperar  a  que  haya  al  menos  5  personas esperando, luego vacuna a las 5 primeras personas, y al terminar las deja ir para esperar por otras 5. Cuando ha atendido a las 50 personas el empleado de salud se retira. 
 *Nota: todos  los  procesos  deben  terminar  su  ejecución;  asegurarse  de  no  realizar  Busy  Waiting; suponga que el empleado tienen una función VacunarPersona() que simula que el empleado está vacunando a UNA persona.*
 
+```c
+sem mutex = 1;
+sem despertar = 0;
+sem esperarVacuna[50] = ([50] 0);
+queue q;
+int cant = 0;
+
+Process persona[i: 1..50]{
+    P(mutex);
+    cant++;
+    q.push(i);
+    if(cant == 50){
+        V(despertar);
+        cant = 0;
+    }
+    V(mutex);
+    P(esperarVacuna[i]);
+}
+
+Process empleado{
+    int i,j,aux;
+    queue vacunados;
+
+    for i = 1..10{
+        P(despertar);
+        for j = 1..5{
+            P(mutex);
+            aux = q.pop();
+            V(mutex);
+            VacunarPersona(aux);
+            vacunados.push(aux);
+        }
+        for j = 1..5{
+            aux = vacunados.pop();
+            V(esperarVacuna[aux]);
+        }
+    }
+
+}
+
+```
+
 ---
 12. Simular la atención en una Terminal de Micros que posee 3 puestos para hisopar a  150  pasajeros. En cada puesto hay una Enfermera que atiende a los pasajeros de acuerdo con el orden de llegada al mismo. Cuando llega un pasajero se dirige al puesto que tenga menos  gente  esperando.  Espera  a  que  la  enfermera  correspondiente  lo  llame  para hisoparlo,  y  luego  se  retira.  *Nota:  sólo  deben  usar  procesos  Pasajero  y  Enfermera. Además, suponer que existe una función Hisopar() que simula la atención del pasajero por parte de la enfermera correspondiente.*
+
+```c
+sem mutex = 1;
+sem mutexQ[3] = ([3] 1);
+sem esperaPersona[150] = ([150] 0);
+sem llena[3] = ([3] 0);
+queue espera[3];
+int hisopados = 0;
+sem mutexHisopado = 1;
+
+Process pasajero[id:1..150]{
+    int queue;
+    P(mutex);
+    queue = obtenerColaMasVacia(espera);
+    V(mutex);
+    P(mutexQ[queue]);
+    espera[queue].push(id);
+    V(mutexQ[queue]);
+    V(llena[queue]);
+    P(esperaPersona[id]);
+    //persona siendo hisopada
+    P(esperaPersona[id]);
+}
+
+Process enfermera[id:1..3]{
+    int pasajero; int j;
+    while(hisopados < 150){
+        P(llena[i]);
+        if(!espera[id].isEmpty()){
+            P(mutexQ[id]);
+            pasajero = espera[id].pop();
+            V(mutexQ[id]);
+            V(esperaPersona[pasajero]);
+            hisopar(pasajero);
+            V(esperaPersona[pasajero]);
+            P(mutexHisopado);
+            hisopados++;
+            if(hisopados == 150){
+                for j = 1..3{
+                    V(llena[j]);
+                }
+            }
+            V(mutexHisopado);
+        }
+    }
+}
+
+
+```
