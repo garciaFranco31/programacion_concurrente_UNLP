@@ -348,24 +348,224 @@ f) Mismo que e) pero ahora hay 10 fotocopiadoras, el empleado indica cual usar.
 
 a)
 ```c
-    Monitor empleado{
+    Monitor Corralon{
 
+        int esperando = 0;
+        cond recibioComprobante;
+        cond empleado;
+        cond cliente;
+        cond datos;
+        cond atencion;
+        text listaCliente;
+        texxt comprobanteEmpleado;
+
+        Process llegada(lista: in text, comprobante: out text){
+            signal(empleado);
+            esperando++;
+            wait(cliente);
+            listaCliente = lista;
+            signal(datos);
+            wait(atencion);
+            comprobante = comprobanteEmpleado;
+            esperando--;
+            signal(recibioComprobante);
+
+        }
+
+        Process obtenerLista(lista: out text){
+            if (esperando == 0){
+                wait(empleado);
+            }
+            signal(cliente);
+            wait(datos);
+            lista = listaCliente;
+        }
+
+        Process dejarComprobante(comprobante: in text){
+            comprobanteEmpleado = comprobante;
+            signal(atencion);
+            wait(recibioComprobante);
+        }
+    }
+
+    Process empleado{
+        int j;
+
+        for j = 1..C{
+            Corralon.obtenerLista(lista);
+            generarComprobante();
+            Corralon.dejarComprobante(comprobante);
+        }
     }
 
     Process cliente[id:1..C]{
-        empleado.dejarLista();
-
-        empleado.agarrarComprobante();
+        Corralon.llegada(lista,comprobante);
     }
 ```
 
 b)
 ```c
+    Monitor Corralon{
+        queue empleadoLibre;
+        cond cliente;
+        int clienteEsperando = 0;
+        int cantEmpleLibres = 0;
 
+        Process llegada(idE: out int){
+            if(cantEmpleLibres == 0){
+                clienteEsperando++;
+                wait(cliente);
+            }
+            else{
+                cantEmpleLibres--;
+                idE = empleadoLibre.pop();
+            }
+        }
+        
+        Process proximo(idE: in int){
+            empleadoLibre.push(idE);
+            if(clienteEsperando > 0){
+                clienteEsperando--;
+                signal(cliente);
+            }
+            else{
+                cantEmpleLibres++;
+            }
+        }   
+    }
+
+    Monitor Escritorio[id:1..E]{
+        text listaCliente;
+        text comprobanteEmpleado;
+        bool hayDatos = false;
+        cond datos;
+        cond atencionEmpleado;
+
+        Process obtenerLista(lista: out text){
+            if(not hayDatos){
+                wait(datos);
+            }
+            lista = listaCliente;
+        }
+
+        Process dejarComprobante(comrpobante: in text){
+            comprobanteEmpleado = comprobante;
+            signal(atencionEmpleado);
+            wait(datos);
+            hayDatos = false;
+        }
+
+        Process atencion(lista: in text, comp: out text){
+            listaCliente = lista;
+            hayDatos = true;
+            signal(datos);
+            wait(atencionEmpleado);
+            comp = comprobanteEmpleado;
+            signal(datos);
+        }
+    }
+
+    Process empleado[idE:1..E]{
+        int j;
+
+        for j = 1..C{
+            Corralon.proximo(idE);
+            Escritorio[idE].obtenerLista(lista);
+            generarComprobante(lista);
+            Escritorio[idE].dejarComprobante(comprobante);
+        }
+    }
+
+    Process cliente[id:1..C]{
+        Corralon.llegada(idE);
+        Escritorio[idE].atencion(lista, comprobante);
+    }
 ```
 
 --- 
-6.  Existe  una  comisión  de  50  alumnos  que  deben  realizar  tareas  de  a  pares,  las  cuales  son corregidas por un JTP. Cuando los alumnos llegan, forman una fila. Una vez que están todos en fila, el JTP les asigna un número de grupo a cada uno. Para ello, suponga que existe una función AsignarNroGrupo() que retorna un número “aleatorio” del 1 al 25. Cuando un alumno ha recibido su número de grupo, comienza a realizar su tarea. Al terminarla, el alumno le avisa al JTP y espera por su nota. Cuando los dos alumnos del grupo completaron la tarea, el JTP les asigna un puntaje (el primer grupo en terminar tendrá como nota 25, el segundo 24, y así sucesivamente hasta el último que tendrá nota 1). Nota: el JTP no guarda el número de grupo que le asigna a cada alumno. 
+6.  Existe  una  comisión  de  50  alumnos  que  deben  realizar  tareas  de  a  pares,  las  cuales  son corregidas por un JTP. Cuando los alumnos llegan, forman una fila. Una vez que están todos en fila, el JTP les asigna un número de grupo a cada uno. Para ello, suponga que existe una función Asignarnrogrupo() que retorna un número “aleatorio” del 1 al 25. Cuando un alumno ha recibido su número de grupo, comienza a realizar su tarea. Al terminarla, el alumno le avisa al JTP y espera por su nota. Cuando los dos alumnos del grupo completaron la tarea, el JTP les asigna un puntaje (el primer grupo en terminar tendrá como nota 25, el segundo 24, y así sucesivamente hasta el último que tendrá nota 1). 
+*Nota: el JTP no guarda el número de grupo que le asigna a cada alumno.*
+
+```c
+    Monitor Tarea{
+        int esperaNro[50] = ([50] 0);
+        int cantidadAlumnos = 0;
+        cond profesor;
+
+        Process hacerFila(idA: in int){
+            cantidadAlumnos++;
+            fila.push(idA);
+            if(cantidadAlumno == 50){
+                signal(profesor);
+            }
+        }
+
+        Process esperarAlumno(){
+            if(cantidadAlumnos < 50){
+                wait(profesor);
+            }
+        }
+
+        Process recibirNumero(id: in int, nro: out int){
+            wait(esperaNro[id]);
+            nro = nroAsignado[id];
+        }
+
+        Process asignarTarea(nroGrupo){
+            idAux = fila.pop();
+            nroAsignado[idAux] = nro;
+            signal(esperaNro[idAux]);
+        }
+
+        Process recibirTarea(nroGrupo: out int){
+            if(finalizadas.isEmpty()){
+                wait(profesor);
+            }else{
+                nroGrupo = finalizadas.pop();
+            }
+        }
+
+        Process corregirTarea(nroGrupo: in int, nota: in int){
+            notaTarea[nroGrupo] = nota;
+            signal_all(notaLista[nroGrupo]);
+        }
+
+        Process recibirNota(nGrupo: in int,nota: out int){
+            finalizadas.push(nGrupo);
+            wait(notaLista[nGrupo]);
+            nota = notaTarea[nGrupo];
+        }
+    }
+
+    Process JTP{
+        int nota = 25;
+        int nroGrupo;
+        int contadorTareas[25] = ([25] 0);
+        Tarea.esperarAlumno();
+        for i = 1..50{
+            nroGrupo = asignarnrogrupo();
+            Tarea.asignarTarea(nroGrupo);
+        }
+
+        for i = 1..50{
+            Tarea.recibirTarea(nroGrupo);
+            contadorTareas[nroGrupo]++;
+            if (contadoTareas[nroGrupo] == 2){
+                Tarea.corregirTarea(nroGrupo,nota);
+                nota--;
+            }
+
+        }
+    }
+
+    Process alumno[id:1..50]{
+        Tarea.hacerFila(id);
+        Tarea.recibirNro(id,tarea);
+        //resolver la tarea
+        Tarea.recibirNota(nGrupo, nota);
+    }
+
+```
 
 ---
 7.  En un entrenamiento de fútbol hay 20 jugadores que forman 4 equipos (cada jugador conoce el equipo al cual pertenece llamando a la función DarEquipo()). Cuando un equipo está listo (han llegado los 5 jugadores que lo componen), debe enfrentarse a otro equipo que también esté listo (los dos primeros equipos en juntarse juegan en la cancha 1, y los otros dos equipos juegan en la cancha 2). Una vez que el equipo conoce la cancha en la que juega, sus jugadores se dirigen a ella. Cuando los 10 jugadores del partido llegaron a la cancha comienza el partido, juegan  durante  50  minutos,  y  al  terminar  todos  los  jugadores  del  partido  se  retiran  (no  es necesario que se esperen para salir). 
