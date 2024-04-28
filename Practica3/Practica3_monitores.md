@@ -570,5 +570,161 @@ b)
 ---
 7.  En un entrenamiento de fútbol hay 20 jugadores que forman 4 equipos (cada jugador conoce el equipo al cual pertenece llamando a la función DarEquipo()). Cuando un equipo está listo (han llegado los 5 jugadores que lo componen), debe enfrentarse a otro equipo que también esté listo (los dos primeros equipos en juntarse juegan en la cancha 1, y los otros dos equipos juegan en la cancha 2). Una vez que el equipo conoce la cancha en la que juega, sus jugadores se dirigen a ella. Cuando los 10 jugadores del partido llegaron a la cancha comienza el partido, juegan  durante  50  minutos,  y  al  terminar  todos  los  jugadores  del  partido  se  retiran  (no  es necesario que se esperen para salir). 
 
+```c
+    Process jugador[id:1..20]{
+        int nroEquipo; int nroCancha;
+
+        Jugar.elegirEquipo(nroEquipo);
+        Equipo[nroEquipo].listo(nroCancha);
+        Cancha[nroCancha].llegada();
+    }
+
+    Process Partido[id:1..2]{
+        Cancha[id].iniciarPartido();
+        //se juegan los 50 minutos de partido
+        Cancha[id].terminarPartido();
+    }
+
+    Monitor Jugar{
+        Process elegirEquipo(nroEquipo: out int){
+            nroEquipo = DarEquipo();
+        }
+    }
+
+    Monitor Equipo[id:1..4]{
+        int cantidadJugadores = 0;
+        cond esperandoJugadores;
+        int canchaAsignada;
+
+        Process listo(idCancha: out int){
+            cantidadJugadores++;
+            if(cantidadJugadores < 5){
+                wait(esperandoJugadores);
+            }else{
+                Administrador.asignarCancha(canchaAsignada);
+                signal_all(esperandoJugadores);
+            }
+            idCancha = canchaAsignada;
+        }
+    }
+
+    Monitor Administrador{
+        int equiposArmados = 0;
+
+        Process asignarCancha(nroCancha: out int){
+            equiposArmados++;
+            if (equiposArmados < 2){
+                nroCancha = 1;
+            }else{
+                nroCancha = 2;
+            }
+        }
+    }
+
+    Monitor Cancha[id:1..2]{
+        int cantidad = 0;
+        cond espera;
+        cond inicio;
+
+        Process llegada(){
+            cantidad++;
+            if (cantidad == 10){
+                signal(inicio);
+            }else{
+                wait(espera);
+            }
+        }
+
+        Process iniciar(){
+            if(cantidad < 10){
+                wait(inicio);
+            }
+        }
+
+        Process terminar(){
+            signal_all(espera);
+        }
+    }
+
+```
+
 ---
-8.  Se  debe  simular  una  maratón  con  C corredores  donde  en  la  llegada  hay  UNA  máquina expendedoras de agua con capacidad para 20 botellas. Además, existe un repositor encargado de reponer las botellas de la máquina. Cuando los C corredores han llegado al inicio comienza la carrera. Cuando un corredor termina la carrera se dirigen a la máquina expendedora, espera su turno (respetando el orden de llegada), saca una botella y se retira. Si encuentra la máquina sin  botellas,  le  avisa  al  repositor  para  que  cargue  nuevamente  la  máquina  con  20  botellas; espera a que se haga la recarga; saca una botella y se retira.  Nota: mientras se reponen las botellas se debe permitir que otros corredores se encolen. 
+8.  Se  debe  simular  una  maratón  con  C corredores  donde  en  la  llegada  hay  UNA  máquina expendedoras de agua con capacidad para 20 botellas. Además, existe un repositor encargado de reponer las botellas de la máquina. Cuando los C corredores han llegado al inicio comienza la carrera. Cuando un corredor termina la carrera se dirigen a la máquina expendedora, espera su turno (respetando el orden de llegada), saca una botella y se retira. Si encuentra la máquina sin  botellas,  le  avisa  al  repositor  para  que  cargue  nuevamente  la  máquina  con  20  botellas; espera a que se haga la recarga; saca una botella y se retira.  Nota: mientras se reponen las botellas se debe permitir que otros corredores se encolen.
+
+```c
+    Process corredor[id:1..C]{
+        Carrera.listo();
+        Carrera.largada();
+        //corre la carrera
+        Carrera.llegadaAMaquina();
+        Maquina.usar();
+        Carrera.dejarMaquina();
+    }
+
+    Process repositor{
+        while(true){
+            Maquina.reponerBotellas();
+        }
+    }
+
+    Monitor Carrera{
+        cond largaCorredor;
+        int cantCorredores = 0;
+        bool libre = true;
+
+        Process listo(){
+            cantCorredores++;
+            if(cantCorredores == C){
+                signal_all(largaCorredor);
+            }
+        }
+
+        Process largada(){
+            if(canntCorredores < C){
+                wait(largaCorredor);
+            }
+        }
+
+        Process llegadaAMaquina(){
+            if(not libre){
+                esperando++;
+                wait(fila);
+            }else{
+                libre = false;
+            }
+        }
+
+        Process dejarMaquina(){
+            if (esperando > 0){
+                espera--;
+                signal(fila);
+            }else{
+                libre = true;
+            }
+        }
+    }
+
+    Monitor Maquina{    
+        cond reponedor;
+        cond corredor;
+        cond esperandoBotella
+
+        Process usar(){
+            if (cantBotellas == 0){
+                signal(reponedor);
+                wait(esperandoBotella);
+            }else{ //creo que el else no va, después lo chequeo.
+                cantBotellas--;
+            }
+        }
+
+        Process reponerBotellas(){
+            if (cantBotellas > 0){
+                wait(reponedor);
+            }else{
+                cantBotellas = 20;
+                signal(esperandoBotella);
+            }
+        }
+    }
+```
