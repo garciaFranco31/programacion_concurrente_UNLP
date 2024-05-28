@@ -627,3 +627,234 @@ Process Empleado[id:0..2]{
 
 * Hay un monitor para cada uno de los 3 empleados.
 
+# Explicación TP4 - PMA
+
+* Los programas están compuestos SOLO de procesos y canales (conocidos/compartidos por todos los procesos, son de tipo mailbox) NO HAY VARIABLES COMPARTIDAS.
+* Los canales son como colas de mensajes enviados y no recibidos, respetan el orden FIFO.
+* Los procesos UNICAMENTE interactuan entre ellos por medio del envío de mensajes.
+* No se requiere usar más exclusión mutua, ya que no hay más recursos compartidos.
+
+## Sintaxis
+Declaración de canales
+```c
+    chan nombreCanal (tipoDato) //declaración de un único canal
+    chan nombreArreglo [1..m](tipoDato) //declaración de un arreglo de canales.
+```
+
+* Sentencias de comunicación *send/recive*
+  * el uso de cada canal es atómico, esto quiere decir que los mensjes se envían/reciben de a uno y que no se harán al mismo tiempo 2 operaciones sobre el mismo canal.
+
+* Send es una operació no bloqueante, el proceso que envía mensaje, deposita dicho mensaje al final del canal y continúa con su ejecución. Esta operación se realiza si o si sobre un canal, el canal no debe ser generado aleatoriamente.
+```c
+    send nombreCanal (mensaje)
+    send nombreArreglo [i](mensaje)
+```
+
+* Recive: es una operación bloqueante, si el canal está vacío se demora hasta que haya al menos un mensaje en él, luego saca el primer mensaje del canal.
+```c
+    recive nombreCanal (variables_para_el_mensaje)
+    recive nombreArreglo [i](variables_para_el_mensaje)
+```
+
+* Empty: permite consultar si un canal está o no vacío. Retorna un valor booleano.
+```c
+    empty(nombreCanal)
+    empty(nombreArreglo[i])
+```
+hay que tener cuidado, porque puede generar Busy Waiting que en PMA está permitido, pero igual hay que tratar de evitarlo.
+
+
+#### Ejercicio 1
+En una empresa de software hay N personas que pruebam un nuevo producto para encontrar errores, cuando encuentran uno generan un reporte para que un empleado corrija el error (las personas no deben recibir ninguna respuesta). El empleado toma los reportes de acuerdo al orden de llegada, los evalúa y hace las correcciones necesarias.
+
+```c
+    chan Reportes(texto);
+    
+    Process Persona[id:0..N-1]{
+        texto R;
+        while (true){
+            R = "generarReporteConProblemas";
+            send Reportes (R);
+        }
+    }
+    
+    Process Empleado{
+        texto rep;
+        while(true){
+            receive Reportes(rep);
+            resolver(rep);
+        }
+    }
+
+```
+* vamos a tener N procesos persona y 1 proceso empleado que resuelve los reportes.
+* vamos a usar u canal como buffer "ordenado" de personas, donde las personas van a ir dejando los reportes y el empleado los va a sacar de ahí para resolverlos.
+
+### Ejercicio 2
+*pequeña modificación del ejercicio 1*
+En una empresa de software hay N personas que pruebam un nuevo producto para encontrar errores, cuando encuentran uno generan un reporte para que un empleado corrija el error y esperan la respuesta del mismo. El empleado toma los reportes de acuerdo al orden de llegada, los evalúa y le responde a la persona que hizo el reporte.
+```c
+chan Reportes (int, texto); //personas envía el reporte a empleado, tiene también un campo int, por medio del cual la persona le envía al empleado su id para así recibir la respuesta correctamente.
+
+//chan Respuestas (texto); //empleado envia respuesta a personas
+chan Respuestas[N](texto);
+
+
+Process Persona[id:0..N-1]{
+    texto R, Res;
+    while(true){
+        R = generarReporte
+        send Reportes (id, R);
+        //receive Respuestas(Res); --> tiene que saber cuando es su respuesta y cuando es de otro, por lo tanto no nos sirve tener un único canal para recibir las respuestas.
+        receive Respuestas[id] (Res);
+    }
+}
+
+Process Empleado(){
+    texto Rep, Res;
+    int idP;
+    while(true){
+        receive Reportes(idP, Rep);
+        Res = generarRespuesta;
+        send Respuestas[idP](Res);// --> el empleado debe saber a quién enviarle la respuesta.
+    }
+}
+
+```
+* Hay que sincornizar a la persona que hizo el reporte, con el empleado que va a resolverlo.
+* No podemos utilizar un único canal, debido a que podrían mezclarse tanto los reportes como las respuestas dentro del mismo (el empleado podría recibir una respuesta y la persona un reporte).
+
+### Ejercicio 3
+*pequeña modificación del ejercicio 2, ahora son 3 empleados para atender los reportes*
+En una empresa de software hay N personas que pruebam un nuevo producto para encontrar errores, cuando encuentran uno generan un reporte para que alguno de los 3 empleados corrija el error y esperan la respuesta del mismo. Los empleados toman los reportes de acuerdo al orden de llegada, los evalúan, hacen las correcciones necesarias y le responden a la persona que hizo el reporte.
+
+```c
+chan Respuestas[N](texto);
+chan Reportes(int,texto);
+
+Process Personas[id:0..N-1]{
+    texto R, Res;
+    while(true){
+        R = generarReporte();
+        send Reportes (id, R);
+        receive Respuestas[id] (Res);
+    }
+}
+
+Process Empleados[id:0..2]{
+    texto Rep, Res;
+    int idP;
+    while(true){
+        receive Reportes(idP, Rep);
+        Res = resolver(Res);
+        send Respuestas[idP](Res);
+    }
+}
+
+```
+* El canal de **reportes** sigue siendo uno solo, debido a que a las personas no les importa que empleado resuelva el pedido, no es algo particular, si no que el empleado que esté libre es el que va a agarrar el reporte para resolverlo.
+  
+### Ejercicio 4
+*Hacemos una modificación al ejercicio 1*
+En una empresa de software hay N personas que prueban un nuevo producto para encontrar errores, cuando encuentran uno generan un reporte para que un empleado corrija el error (las personas no deben recibir ninguna respuesta). El empleado toma los reportes de acuerdo al orden de llegada, los evalúa y hace las correcciones necesarias; cuando no hay reportes para atender el empleado se dedica a leer durante 10 minutos. 
+
+```c
+chan Reportes(texto);
+
+Process Personas[id:0..N-1]{
+    texto R;
+    while(true){
+        R = generarReporte();
+        send Reportes(R);
+    }
+}
+
+Process Empleado(){
+    texto Rep;
+    while(true){
+        if (not empty(Reportes)){
+            receive Reportes(Rep);
+            resolver(Rep);
+        }else{
+            delay (600) //lee 10 minutos
+        }
+    }
+}
+
+```
+
+* el empleado no puede quedarse bloqueado haciendo un *receive*, ya que sino no podrá leer los 10 minutos.
+* El empleado debe chequear antes de hacer el *receive* si hay algo en el canal.
+* *Empty* lo usamos únicamente cuando debemos hacer algo más si no hay nada en el canal, ya que si solamente utilizamos *receive*, se quedaría en loop consultando si hay algo o no en el canal sin poder hacer nada más.
+  
+### Ejercicio 5
+*Hacemos una modificación al ejercicio 4*
+En una empresa de software hay N personas que prueban un nuevo producto para encontrar errores, cuando encuentran uno generan un reporte para que uno de los 3 empleados corrija el error (las personas no deben recibir ninguna respuesta). Los empleados toman los reportes de acuerdo al orden de llegada, los evalúa y hacen las correcciones necesarias; cuando no hay reportes para atender los empleados se dedican a leer durante 10 minutos. 
+
+```c
+chan Reportes(texto);
+chan Pedido(id);
+//chan Siguiente(texto);
+chan Siguiente[3](texto);
+
+Process Personas[id:0..N-1]{
+    texto R;
+    while(true){
+        R = generarReporte();
+        send Reportes(R);
+    }
+}
+
+// Process Empleado[id:0..2]{ *viejo*
+//     texto Rep;
+//     while(true){
+//         if (not empty(Reportes)){
+//             //receive Reportes(Rep); --> esto puede producir demora innecesaria, ya que si hay un único mensaje en el canal, solamente uno de los empleados va a poder recibir el mensaje, el resto se quedarían demorados en esta operación en vez de leer.
+//             resolver(Rep);
+//         }else{
+//             delay (600) //lee 10 minutos
+//         }
+//     }
+// }
+
+Process Empleados[id:0..2]{ //*nuevo*
+    texto Rep;
+    while(true){
+        send Pedido(id);
+        // if (not empty (Siguiente[id])){
+        //     receive Siguiente[id](Rep); -->sigue habiendo demora innecesaria, luego de agregar el id al Siguiente, deja de haber demora innecesaria.
+        //     resolver(Rep);
+        // }else{
+        //     delay (600) //lee 10 minutos
+        // }
+        receive Siguiente[id](Rep); //se resuelve el problema de que el canal "estaba vacío" porque el coordinador no llegó a atender el pedido y se fue a leer aunque había trabajo.
+        if (Rep <> "Vacio"){
+            resolver(Rep);
+        }else{
+            delay (600);
+        }
+    }
+}
+
+Process Coordinador(){
+    texto Rep;
+    int idE;
+    while(true){
+        receive Pedido(idE);
+        if (not empty (Reportes)){
+            Rep = "Vacio";
+        }else{
+            receive Reportes (Rep);
+        }
+        send Siguiente[idE](Rep);
+    }
+}
+
+```
+* En esta solución no podemos prescindir del Empty, ya que sin él, se quedaría dormido en el receive y no haría la otra actividad (leer en este caso).
+* Se puede tener un canal para cada empleado, esto obligaría a que la persona le entregue su reporte a UN empeado en particular (no es lo que se pide).
+* Vamos a necesitar de un proceso **coordinador** que esté entre las personas y los empleados, el cual recibirá los reportes de las personas y los empleados le pedirán a él los reportes que deben resolver.
+  * Un empleado le "pide" el siguiente reporte al coordinador por medio de un canal *Pedido*, el cual devolverá el reporte a atender por un canal *Siguiente*.
+* Se debe usar un canal privado para que cada empleado reciba la respuesta que es sólo para él. El coordinador agarra al que está libre para que resuelva el pedido.
+* Puede pasar que el coordinador no haya atendido su pedido, por lo tanto y que el empleado siempre esté un pedido "atrasado".
+  * Ahora el empleado debe esperar si o si una respuesta del coordinador (si hay o no hay reportes pendientes).
