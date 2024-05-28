@@ -5,7 +5,51 @@
 1. Suponga  que  N  clientes  llegan  a  la  cola  de  un  banco  y  que  serán  atendidos  por  sus  empleados.  Analice  el  problema  y  defina  qué  procesos,  recursos  y  comunicaciones  serán necesarios/convenientes  para  resolver  el  problema.  Luego,  resuelva  considerando  las siguientes situaciones: 
     a. Existe un único empleado, el cual atiende por orden de llegada. 
     b. Ídem a) pero considerando que hay 2 empleados para atender, ¿qué debe modificarse en la solución anterior? 
-    c. Ídem  b)  pero  considerando  que,  si  no  hay  clientes  para  atender,  los  empleados  realizan  tareas  administrativas  durante  15  minutos.  ¿Se  puede  resolver  sin  usar procesos adicionales? ¿Qué consecuencias implicaría?  
+    c. Ídem  b)  pero  considerando  que,  si  no  hay  clientes  para  atender,  los  empleados  realizan  tareas  administrativas  durante  15  minutos.  ¿Se  puede  resolver  sin  usar procesos adicionales? ¿Qué consecuencias implicaría?
+
+a)
+```c
+chan esperando(int);
+
+Process Clientes[id:0..N-1]{
+    while(true){
+        send esperando(id);
+    }
+}
+
+Process Empleado(){
+    int idC;
+
+    while (true){
+        receive esperando(idC);
+        atender(idC);
+    }
+}
+
+```
+
+b)
+```c
+chan esperando(int);
+
+Process Clientes[id:0..N-1]{
+    while(true){
+        send esperando(id);
+    }
+}
+
+Process Empleados[id:0..1]{
+    int idC;
+
+    while (true){
+        receive esperando(idC);
+        atender(idC);
+    }
+}
+
+```
+
+--- 
  
 2.  Se  desea  modelar  el  funcionamiento  de  un  banco  en  el  cual  existen  5  cajas  para  realizar pagos.  Existen  P  clientes que  desean  hacer  un  pago.  Para  esto,  cada  una  selecciona  la  caja donde hay menos personas esperando; una vez seleccionada, espera a ser atendido. En cada caja, los clientes son atendidos por orden de llegada por los cajeros. Luego del pago, se les entrega un comprobante. Nota: maximizando la concurrencia.
 
