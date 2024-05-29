@@ -48,10 +48,76 @@ Process Empleados[id:0..1]{
 }
 
 ```
+```c
+chan esperando(int); //el cliente se encola y espera a ser atendido
+chan siguiente(int); //el empleado pide el siguiente cliente
+chan atendiendo[2](int); //se tiene un canal privado para cada empleado
+
+Process Clientes[id:0..N-1]{
+    while(true){
+        send esperando(id);
+    }
+}
+
+Process Coordinador(){
+    int idE;
+    while (true){
+        receive siguiente(idE)
+        if (empty (esperando)){
+            idC = -1;
+        }else{
+            receive esperando(idC);
+        }
+        send atendiendo[idE](idC);
+    }
+}
+
+Process Empleados[id:0..1]{
+    int idC;
+    while(true){
+        send siguiente(id);
+        receive atendiendo[id](idC);
+        if(idC <> -1){
+            anteder(idC);
+        }else{
+            delay (900) //hace tareas administrativas por 15 minutos
+        }
+    }
+}
+
+```
+
 
 --- 
  
-2.  Se  desea  modelar  el  funcionamiento  de  un  banco  en  el  cual  existen  5  cajas  para  realizar pagos.  Existen  P  clientes que  desean  hacer  un  pago.  Para  esto,  cada  una  selecciona  la  caja donde hay menos personas esperando; una vez seleccionada, espera a ser atendido. En cada caja, los clientes son atendidos por orden de llegada por los cajeros. Luego del pago, se les entrega un comprobante. Nota: maximizando la concurrencia.
+2.  Se  desea  modelar  el  funcionamiento  de  un  banco  en  el  cual  existen  5  cajas  para  realizar pagos.  Existen  P  clientes que  desean  hacer  un  pago.  Para  esto,  cada  uno  selecciona  la  caja donde hay menos personas esperando; una vez seleccionada, espera a ser atendido. En cada caja, los clientes son atendidos por orden de llegada por los cajeros. Luego del pago, se les entrega un comprobante. Nota: maximizando la concurrencia.
+
+```c
+chan cajas[5](int);
+chan pagado(texto)
+
+Process Cliente[id:0..P-1]{
+    while(true){
+        selec = seleccionarMasVacia(1..5);
+        send cajas[selec](idC);
+        receive pagado(turno);
+    }
+}
+
+Process Cajeros[id:0..4]{
+    int idC;
+    texto comp;
+    while(true){
+        receive cajas[id](idC);
+        comp = generarComprobante();
+        send pagado(comp);
+    }
+}
+
+
+```
+
+---
 
 3.  Se  debe  modelar  el  funcionamiento  de  una  casa  de  comida  rápida,  en  la  cual  trabajan  2 cocineros  y  3  vendedores,  y  que  debe  atender  a  C  clientes.  El  modelado  debe  considerar que: 
 - Cada cliente realiza un pedido y luego espera a que se lo entreguen. 
