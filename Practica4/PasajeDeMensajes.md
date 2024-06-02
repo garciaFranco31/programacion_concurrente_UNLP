@@ -326,7 +326,95 @@ Process Impresora[id:0..3]{
 1.  Suponga  que  existe  un  antivirus  distribuido que  se  compone  de  R  procesos  robots Examinadores y 1 proceso Analizador. Los procesos Examinadores están buscando continuamente  posibles  sitios  web  infectados;  cada  vez  que  encuentran  uno  avisan  la dirección y luego continúan buscando. El proceso Analizador se encarga de hacer todas las pruebas necesarias con cada uno de los sitios encontrados por los robots para determinar si están o no infectados.  
     a) Analice  el  problema  y  defina  qué  procesos,  recursos  y  comunicaciones  serán necesarios/convenientes para resolver el problema. 
     b) Implemente una solución con PMS.
-2.  En un laboratorio de genética veterinaria hay 3 empleados. El primero de ellos continuamente prepara las muestras de ADN; cada vez que termina, se la envía al segundo empleado  y  vuelve  a  su  trabajo.  El  segundo  empleado  toma  cada  muestra  de  ADN preparada,  arma  el  set  de  análisis  que  se  deben  realizar  con  ella  y  espera  el  resultado  para archivarlo.  Por  último,  el  tercer  empleado  se  encarga  de  realizar  el  análisis  y  devolverle  el resultado al segundo empleado.  
+
+```c
+
+Process Analizador{
+    texto sitioWeb;
+
+    while(true){
+        Admin!pedido();
+        Admin?aviso(sitioWeb);
+        analizar(sitioWeb);
+    }
+}
+
+Process Examinador[id:0..R-1]{
+    text sitioWeb;
+
+    while(true){
+        sitioWeb = sitioInfectado();
+        Admin!aviso(sitioWeb);
+    }
+}
+
+Process Admin{
+    cola avisos;
+    text sitioWeb;
+    text aviso;
+
+    do Examinador[*]?aviso(sitioWeb) -> avisos.push(sitioWeb);
+    [] not empty(avisos); Analizador?pedido() ->
+                aviso = avisos.pop()
+                Analizor!aviso(aviso);
+
+    od
+}
+
+```
+
+
+---
+2.  En un laboratorio de genética veterinaria hay 3 empleados. El primero de ellos continuamente prepara las muestras de ADN; cada vez que termina, se la envía al segundo empleado  y  vuelve  a  su  trabajo.  El  segundo  empleado  toma  cada  muestra  de  ADN preparada,  arma  el  set  de  análisis  que  se  deben  realizar  con  ella  y  espera  el  resultado  para archivarlo.  Por  último,  el  tercer  empleado  se  encarga  de  realizar  el  análisis  y  devolverle  el resultado al segundo empleado.
+
+```c
+    Process Empleado1{
+        text muestra;
+
+        while(true){
+            muestra = prepararMuestra(muestra);
+            Admin!preparado(muestra);
+        }
+    }
+
+    Process Empleado2{
+        text muestra;
+        text set;
+        text analisis;
+
+        while(true){
+            Admin!pedido();
+            Admin?obtenerMuestra();
+            Empleado1?preparado(muestra);
+            set = prepararSet(set);
+            Empleado3!enviarSet(set);
+            Empleado3?obtenerAnalisis(analisis);
+            archivar(analisis);
+        }
+    }
+
+    Process Empleado3{
+        text set;
+        text analisis;
+        
+        while(true){
+            Empleado2?enviarSet(set);
+            analisis = realizarAnalisis(analisis);
+            Empleado2!obtenerAnalisis(analisis);
+        }
+    }
+
+    Process Admin{
+        cola muestras;
+        text muestra;
+
+        do Empleado1?obtenerMuestra(muestra) -> muestras.push(muestra);
+        [] not empty(muestras); Empleado2?pedido() ->
+                Empleado2!obtenerMuestra(muestas.pop());
+    }
+```
+
+---
  
 3.  En  un  examen  final  hay  N  alumnos  y  P  profesores.  Cada  alumno  resuelve  su  examen,  lo entrega  y  espera  a  que  alguno  de  los  profesores  lo  corrija  y  le  indique  la  nota.  Los profesores corrigen los exámenes respetando el orden en que los alumnos van entregando.  
     a) Considerando que P=1. 
