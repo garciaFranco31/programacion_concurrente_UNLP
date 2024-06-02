@@ -93,24 +93,58 @@ Process Empleados[id:0..1]{
 2.  Se  desea  modelar  el  funcionamiento  de  un  banco  en  el  cual  existen  5  cajas  para  realizar pagos.  Existen  P  clientes que  desean  hacer  un  pago.  Para  esto,  cada  uno  selecciona  la  caja donde hay menos personas esperando; una vez seleccionada, espera a ser atendido. En cada caja, los clientes son atendidos por orden de llegada por los cajeros. Luego del pago, se les entrega un comprobante. Nota: maximizando la concurrencia.
 
 ```c
-chan cajas[5](int);
-chan pagado(texto)
+chan pedido[5](text,int);
+chan comprobante[P](texto);//cada persona tiene su prop comprobante
+chan buscarCaja(int);//se obtiene la caja con menos fila
+chan obtenerCaja[P](int);//envia al cliente a la caja obtenida
+chan liberarCaja(int);//el cliente libera la caja
+chan hayPedido(bool);//se fija si hay algún pedido p/atender
 
-Process Cliente[id:0..P-1]{
+
+Process Caja[id:0..4]{
+    int idAux;
+    text pago;
+    text comprobante;
     while(true){
-        selec = seleccionarMasVacia(1..5);
-        send cajas[selec](idC);
-        receive pagado(turno);
+        receive pedido[id](pago,idAux);
+        generarComprobante(pago, comprobante);
+        send comprobante[idAux](comprobante);
     }
 }
 
-Process Cajeros[id:0..4]{
-    int idC;
-    texto comp;
-    while(true){
-        receive cajas[id](idC);
-        comp = generarComprobante();
-        send pagado(comp);
+Process Cliente[id: 0..P-1]{
+    int idCaja;
+    text pago;
+    text comprobante;
+
+    send buscarCaja(id);
+    send hayPedido(true);
+    receive obtenerCaja[id](idCaja);
+    send pedido[idCaja](pago, id);
+    receive comprobante[id](comprobante);
+    send liberarCaja(idCaja);
+    send hayPedido(false); //en el gh de Agus aparece true?
+}
+
+Process Admin(){
+    int cantEspera[5] = ([5] 0);
+    int min;
+    int idCliente, idCaja;
+    bool pedido;
+
+    while (true){
+        receive hayPedido(pedido);
+        if (not empty(buscarCaja) && empty(liberarCaja)){
+            receive buscarCaja(idCliente);
+            min = menorFila(cantEspera);
+            cantEspera[min]++;
+            send obtenerCaja[idCliente](min);
+        }else{
+            if (not empty (liberarCaja)){
+                receive liberarCaja(idCaja);
+                cantEspera[idCaja]--;
+            }
+        }
     }
 }
 
@@ -124,10 +158,168 @@ Process Cajeros[id:0..4]{
 - Los pedidos que hacen los clientes son tomados por cualquiera de los vendedores y se lo pasan a los cocineros para que realicen el plato. Cuando no hay pedidos para atender, los vendedores aprovechan para reponer un pack de bebidas de la heladera (tardan entre 1 y 3 minutos para hacer esto). 
 - Repetidamente cada cocinero toma un pedido pendiente dejado por los vendedores, lo cocina y se lo entrega directamente al cliente correspondiente. 
 *Nota: maximizar la concurrencia.* 
+
+```c
+    chan realizarPedido(text,int);
+    chan obtenerPedido(int);
+    chan obtenerPlato[C](int);
+    chan retornarPedido[3](text,int);
+    chan pedidoPendiente(text, int);
+
+    Process Coordinador(){
+        text pedido;
+        int idVendedor;
+        int idCliente;
+
+        while(true){
+            receive obtenerPedido(idVendedor);
+            if (empty(realizarPedido)){
+                idCliente = -1;
+                pedido = "Vacio";
+            }else{
+                receive realizarPedido(pedido, idCliente);
+            }
+            send retornarPedido[idVendedor](pedido, idCliente);
+
+        }
+
+    }
+
+    Process Cocinero[id:0..1]{
+        text pedido;
+        text plato;
+        int idCliente;
+
+        while(true){
+            receive pedidoPendiente(pedido, idCliente);
+            plato = cocinarPlato(pedido);
+            send obtenerPlato[idCliente](plato);
+        }
+    }
+
+    Process Vendedores[id:0..2]{
+        texto pedido;
+        int idCliente;
+
+        while(true){
+            send obtenerPedido(id);
+            receive retornarPedido[id](pedido,idCliente);
+            if (pedido != "Vacio"){
+                send pedidoPendiente(pedido, idCliente);
+            }else{
+                delay(60,180);//reponer gaseosa 1-3 min
+            }
+        }
+
+    }
+
+    Process Clientes[id:0..C-1]{
+        text pedido;
+        text plato;
+
+        send realizarPedido(pedido, id);
+        receive obtenerPlato[id](plato);
+    }
+
+```
+
+---
  
 4.  Simular  la  atención  en  un  locutorio  con  10  cabinas  telefónicas,  el  cual  tiene  un  empleado que se encarga de atender a N clientes. Al llegar, cada cliente espera hasta que el empleado le  indique  a  qué  cabina  ir,  la  usa  y  luego  se  dirige  al  empleado  para  pagarle.  El  empleado atiende a los clientes en el orden en que hacen los pedidos, pero siempre dando prioridad a los  que  terminaron  de  usar  la  cabina.  A  cada  cliente  se  le  entrega  un  ticket  factura.  Nota: maximizar la concurrencia; suponga que hay una función  Cobrar() llamada por el empleado que simula que el empleado le cobra al cliente. 
- 
+
+```c
+
+chan solicitarCabina(int);
+chan obtenerCabina[N](int);
+chan pagarEmpleado(int, int);
+chan obtenerTicket[N](text);
+
+Process Empleado(){
+    bool cabinaOcupa[10] = ([10] false);
+    int idCliente;
+    int idCabina;
+    text ticket;
+
+    while (true){
+        if (not empty (pagarEmpleado)){
+            receive pagarEmpleado(idCliente,idCabina);
+            cabinaOcupa[idCabina] = false;
+            ticket = cobrar(idCliente);
+            send obtenetTicket[idCliente](ticket);
+        }else{
+            if (not empty(solicitarCabina) && hayCabinaLibre(cabinaOcupa)){
+                receive solicitarCabina(idCliente);
+                idCabina = obtenerCabinaLibre(cabinaOcupa);
+                cabinaOcupa[idCabina] = true;
+                send obtenerCabina[idCliente](idCabina);
+            }
+        }
+    }
+
+
+}
+
+Process Cliente[id:0..N-1]{
+    int cabina;
+    text ticket;
+
+    send solicitarCabina(id);
+    receive obtenerCabina[id](cabina);
+    usarCabina(cabina);
+    send pagarEmpleado(id, cabina);
+    receive obtenerTicket[id](ticket);
+}
+
+```
+
+--- 
 5.  Resolver la administración de las impresoras de una oficina. Hay 3 impresoras, N usuarios y 1  director.  Los  usuarios  y  el  director  están  continuamente  trabajando  y  cada  tanto  envían documentos  a  imprimir.  Cada  impresora,  cuando  está  libre,  toma  un  documento  y  lo imprime,  de  acuerdo  con  el  orden  de  llegada,  pero  siempre  dando  prioridad  a  los  pedidos del  director.  Nota:  los  usuarios  y  el  director  no  deben  esperar  a  que  se  imprima  el documento.
+
+```c
+
+chan pedidoDirectori(textDir);
+chan pedidoUsuario(textUsr);
+chan hayPedido(bool);
+
+Process Usuario[id:0..N-1]{
+    text documento;
+
+    while(true){
+        documento = generarDocumento(documento);
+        sen pedidoUsuario(documento);
+        send hayPedido(true);
+    }
+}
+
+Process Director{
+    text documento;
+
+    while(true){
+        documento = generarDocumento(documento);
+        send pedidoDirector(documento);
+        sen hayPedido(true);
+    }
+}
+
+Process Impresora[id:0..3]{
+    text documento;
+    bool hay;
+
+    while(true){
+        receive hayPedido(hay);
+
+        if(not empty(pedidoDirector)){
+            receive pedidoDirector(documento);
+        }else{
+            receive pedidoUsuario(documento);
+        }
+        imprimir(documento);
+    }
+}
+
+```
+
+---
 
 ## PMS (Pasaje de Mensjes Sincrónicos)
 
