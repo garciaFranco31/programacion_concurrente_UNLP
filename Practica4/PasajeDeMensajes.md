@@ -421,7 +421,206 @@ Process Admin{
     b) Considerando que P>1. 
     c) Ídem  b)  pero  considerando  que  los  alumnos  no  comienzan  a  realizar  su  examen  hasta que todos hayan llegado al aula. 
 *Nota: maximizar la concurrencia y no generar demora innecesaria.*
- 
-4.  En  una  exposición  aeronáutica  hay  un  simulador  de  vuelo  (que  debe  ser  usado  con exclusión  mutua)  y  un  empleado  encargado  de  administrar  su  uso.  Hay  P  personas  que esperan  a  que  el  empleado  lo  deje  acceder  al  simulador,  lo  usa  por  un  rato  y  se  retira.  El empleado  deja  usar  el simulador  a  las  personas  respetando  el  orden  de  llegada.  Nota: cada persona usa sólo una vez el simulador.   
- 
+
+a)
+```c
+Process Alumno[id:0..N-1]{
+    text examen;
+    int nota;
+
+    while(true){
+        examen = resolverExamen(examen);
+        Admin!entregarExamen(id,examen);
+        Profesor?entregarNota(nota);
+    }
+}
+
+Process Profesor{
+    text examen;
+    int nota;
+    int idAlumno;
+
+    while(true){
+        Admin!pedido();
+        Admin?corregirExamen(idAlumno,examen);
+        nota = calcularNota(examen);
+        Alumno[idAlumno]!entregarNota(nota);
+    }
+
+
+}
+
+Process Admin{
+    cola entregados;
+    text examen;
+    int idAlumno;
+
+    do Alumno[*]?entregarExamen(idAlumno, examen) -> entregados.push(idAlumno,examen);
+        [] not empty(entregados); Profesor?pedido() ->
+                            Profesor!corregirExamen(entregados.pop());
+    od
+}
+
+```
+
+b)
+```c
+
+Process Alumno[id:0..N-1]{
+    text examen;
+    int nota;
+
+    while(true){
+        examen = resolverExamen(examen);
+        Admin!entregarExamen(id,examen);
+        Profesor[*]?entregarNota(nota);
+    }
+}
+
+Process Profesor[id:0..P-1]{
+    text examen;
+    int nota;
+    int idAlumno;
+
+    while(true){
+        Admin!pedido(id);
+        Admin?corregirExamen(idAlumno,examen);
+        nota = calcularNota(examen);
+        Alumno[idAlumno]!entregarNota(nota);
+    }
+}
+
+Process Admin{
+    cola entregados;
+    text examen;
+    int idAlumno;
+    int idProfesor;
+
+    do Alumno[*]?entregarExamen(idAlumno, examen) -> entregador.push(idAlumno,examen);
+       []not empty(entregados); Profesor[*]?pedido(idProfesor) -> 
+                                Profesor[idProfesor]!corregirExamen(entregados.pop());
+    od
+}
+```
+
+c)
+```c
+
+Process Alumno[id:0..N-1]{
+    text examen;
+    int nota;
+    
+    while(true){
+        Admin!llegue();
+        Admin?inicioExamen();
+        examen = resolverExamen(examen);
+        Admin!entregarExamen(id,examen);
+        Profesor[*]?entregarNota(nota);
+    }
+}
+
+Process Profesor[id:0..P-1]{
+    text examen;
+    int nota;
+    int idAlumno;
+
+    while(true){
+        Admin!pedido(id);
+        Admin?corregirExamen(idAlumno,examen);
+        nota = calcularNota(examen);
+        Alumno[idAlumno]!entregarNota(nota);
+    }
+}
+
+Process Admin{
+    cola entregados;
+    text examen;
+    int idAlumno;
+    int idProfesor;
+
+    for i=0 to N-1{
+        Alumno?llegue();
+    }
+    for i=0 to N-1{
+        Alumno!inciarExamen();
+    }
+
+    do Alumno[*]?entregarExamen(idAlumno, examen) -> entregador.push(idAlumno,examen);
+       []not empty(entregados); Profesor[*]?pedido(idProfesor) -> 
+                                Profesor[idProfesor]!corregirExamen(entregados.pop());
+    od
+}
+
+
+```
+
+---
+4.  En  una  exposición  aeronáutica  hay  un  simulador  de  vuelo  (que  debe  ser  usado  con exclusión  mutua)  y  un  empleado  encargado  de  administrar  su  uso.  Hay  P  personas  que esperan  a  que  el  empleado  lo  deje  acceder  al  simulador,  lo  usa  por  un  rato  y  se  retira.  El empleado  deja  usar  el simulador  a  las  personas  respetando  el  orden  de  llegada.  Nota: cada persona usa sólo una vez el simulador.
+
+```c
+    Process Empleado{
+        cola esperando;
+        int idPersona;
+        bool libre = true;
+
+        do Persona[*]?solicitarTurno(idPersona) ->
+            if (not libre){
+                esperando.push(idPersona);
+            }else{
+                libre = false;
+                Persona[idPersona]!usarSimulador();
+            }
+        [] Persona[*]?dejarSimulador() -> 
+            if(empty(esperando)){
+                libre = true;
+            }else{
+                idPersona = esperando.pop();
+                Persona[idPersona]!usarSimulador();
+            }
+
+        od
+    }
+
+    Process Persona[id:0..P-1]{
+        Empleado!solicitarTurno(id);
+        Empleado?usarSimulador();
+        usandoSimulador();
+        Empleado!dejarSimulador();
+    }
+
+```
+
+---
 5.  En un estadio de fútbol hay una máquina expendedora de gaseosas que debe ser usada por E Espectadores de acuerdo al orden de llegada. Cuando el espectador accede a la máquina en su turno usa la máquina y luego se retira para dejar al siguiente.  Nota: cada Espectador una sólo una vez la máquina.
+
+```c
+Process Espectador[id:0..E-1]{
+    Maquina!solicitarUso(id);
+    Maquina?darPaso();
+    usarMaquina();
+    Maquina!liberarMaquina();
+}
+
+Process Maquina{
+    cola esperando;
+    int idEspectador;
+    bool libre = true;
+
+    do Espectador[*]?solicitarUso(idEspectador) ->
+        if(not libre){
+            esperando.push(idEspectador);
+        }else{
+            libre = false;
+            Espectador[idEspectador]!darPaso();
+        }
+    [] Espectador[*]?liberarMaquina() ->
+        if (empty(esperando)){
+            libre = true;
+        }else{
+            idEspectador = esperando.pop();
+            Espectador[idEspectador]!darPaso();
+        }
+    od
+}
+
+```
