@@ -89,6 +89,7 @@ Process Competidor[id:0..N-1]{
     Organizdor?entregarDesafio(desafio);
     while (not estaBien){
         desafio = resolverDesafio();
+        Admin!desafioFinalizado(id,desafio);
         Supervisor[*]?desafioCorregido(estaBien);
     }
 
@@ -99,15 +100,18 @@ Process Supervisor[id:0..S-1]{
     bool estaBien;
     int idCompetidor;
 
-    Admin!pedido(id);
-    Admin?corregirDesafio(idCompetidor,desafio);
-    nota = corregir(desafio);
-    Competidor[idCompetidor]!desafioCorregido(estaBien);
+    while(true){
+        Admin!pedido(id);
+        Admin?corregirDesafio(idCompetidor,desafio);
+        nota = corregir(desafio);
+        Competidor[idCompetidor]!desafioCorregido(estaBien);
+    }
 
 }
 
 Process Organizador{
     text desafio;
+    int i;
 
     for i = 0 to S-1{
         Competidor[i]!entregarDesafio(desafio);
@@ -117,7 +121,7 @@ Process Organizador{
 Process Admin{
     text desafio;
     int idSupervisor, idCompetidor;
-    cola desafiosResueltos;
+    cola desafiosResueltos(int, string);
 
     do Competidor[*]?desafioFinalizado(idCompetidor,desafio) -> desafiosResueltos.push(idCompetidor,desafio);
        [] not empty(desafiosResueltos); Supervisor[*]?pedido(idSupervisor) ->  
@@ -129,4 +133,40 @@ Process Admin{
 ```
 
 ---
-1. En un comedor estudiantil hay un horno microondas que debe ser usado por E estudiantes de acuerdo con el orden de llegada. Cuando el estudiante accede al horno, lo usa y luego se retira para dejar al siguiente. Nota: cada Estudiante usa sólo una vez el horno.
+4. En un comedor estudiantil hay un horno microondas que debe ser usado por E estudiantes de acuerdo con el orden de llegada. Cuando el estudiante accede al horno, lo usa y luego se retira para dejar al siguiente. 
+*Nota: cada Estudiante usa sólo una vez el horno.*
+
+```c
+Process Estudiante[id:0..E-1]{
+    Admin!pasar(id);
+    Admin?usarHorno();
+    usandoHorno();
+    Admin!dejar();
+}
+
+Process Admin{
+    cola fila;
+    bool libre = true;
+
+    do ; Estudiante[*]?pasar(idEstudiante) -> {
+        []   if (libre){
+                libre = false;
+                Estudiante[idEstudiante]!usarHorno();
+            }else{
+                fila.push(idEstudiante);
+            }
+        }
+        
+        [] ; Estudiante[*]?dejar() -> {
+            if(empty(fila)){
+                libre = true;
+            }else{
+                idEstudiante = fila.pop();
+                Estudiante[idEstudiante]!usarHorno();
+            }
+        }
+       
+    od
+}
+
+```
